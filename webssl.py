@@ -1,11 +1,13 @@
 import os
-from file import File
 from argparse import ArgumentParser
-from webssl_api import WebSSLApi
+from file import File
+from api import Api
+from csr_decoder import CSRDecoder
+from crt_decoder import CRTDecoder
 
 
 def main():
-    print("\n---- WebSSL Client----\n")
+    print("\n---- WebSSL Command Line Tool----\n")
 
     try:
         parser = ArgumentParser()
@@ -33,7 +35,14 @@ def main():
                                action='store_true')
         operation.add_argument("-reqGenKeyAndCert", help="Generate a key pair and self signed certificate",
                                action='store_true')
+        operation.add_argument("-reqGenKeyAndSignedCert", help="Generate a key pair and signed certificate",
+                               action='store_true')
+        operation.add_argument("-reqDecodeCrt", help="Decodes an x509 certificate", action='store_true')
+        operation.add_argument("-reqDecodeCsr", help="Decodes a CSR", action='store_true')
         operation.add_argument("-x509SignCsr", help="Sign a CSR to produce an x509 certificate", action='store_true')
+        operation.add_argument("-x509DecodeCrt", help="Decodes an x509 certificate", action='store_true')
+        operation.add_argument("-pkcs12Export", help="Encrypt certificate and keys and export as a PKCS#12 file",
+                               action='store_true')
         parser.add_argument("-cn", help="Common Name")
         parser.add_argument("-c", help="Country")
         parser.add_argument("-s", help="State")
@@ -41,9 +50,19 @@ def main():
         parser.add_argument("-o", help="Organisation")
         parser.add_argument("-ou", help="Organisational Unit")
         parser.add_argument("-e", help="Email")
-        parser.add_argument("-algorithm", help="Algorithm (rsa-2048, ecc-p256, rsa-4096, ecc-p521)")
+        parser.add_argument("-dc", help="Domain Component")
+        parser.add_argument("-algorithm", help="Algorithm (aes-128, rsa-2048, ecc-p256, rsa-4096, ecc-p521)")
+        parser.add_argument("-digest", help="Digest (sha-256)", default='sha-256')
+        parser.add_argument("-password", help="PKCS12 password")
         parser.add_argument("-days", help="Certificate validity in days")
-        parser.add_argument("-subjectType", help="Certificate subject type (CA/End Entity)")
+        parser.add_argument("-subjectType", help="Certificate subject type (CA/endEntity)")
+        parser.add_argument("-pathLength", help="CA certificate path length constraint", default='0')
+        parser.add_argument("-keyUsageList", help='A list of key usage extensions ('
+                                                  'CRLSign/dataEncipherment/decipherOnly/digitalSignature/encipherOnly/'
+                                                  'keyAgreement/keyCertSign/keyEncipherment/nonRepudiation)', nargs='+')
+        parser.add_argument("-extendedKeyUsageList", help='A list of extended key usage extensions'
+                                                          ' (clientAuthentication/serverAuthentication/emailProtection/'
+                                                          'codeSigning/timeStamping)', nargs='+')
         parser.add_argument("-inKey", help="Input key file")
         parser.add_argument("-signer", help="Input certificate file")
         parser.add_argument("-recip", help="Input certificate file")
@@ -60,7 +79,7 @@ def main():
         cwd = os.getcwd()
 
         # Initialise WebSSL API
-        webssl_api = WebSSLApi(args['debug'])
+        webssl_api = Api(args['debug'])
 
         if args['getStatus']:
 
@@ -82,11 +101,8 @@ def main():
 
         elif args['generateKey'] and args['algorithm'] and args['outPrvKey'] and args['outPubKey']:
 
-            # Read algorithm argument
-            algorithm = args['algorithm']
-
             # WebSSL Generate Key
-            pub_key_pem, prv_key_pem = webssl_api.generate_key(algorithm)
+            pub_key_pem, prv_key_pem = webssl_api.generate_key(args['algorithm'])
 
             # Save Private Key to file
             path = cwd + "\\" + args['outPrvKey']
@@ -98,10 +114,8 @@ def main():
 
         elif args['eciesEncrypt'] and args['inKey'] and args['in'] and args['out']:
 
-            # Read public key from file
+            # Read input from files
             pub_key_pem = File.read(cwd + "\\" + args['inKey'])
-
-            # Read data to encrypt from file
             data_to_encrypt = File.read(cwd + "\\" + args['in'])
 
             # WebSSL ECIES encrypt
@@ -113,10 +127,8 @@ def main():
 
         elif args['eciesDecrypt'] and args['inKey'] and args['in'] and args['out']:
 
-            # Read private key from file
+            # Read input from files
             prv_key_pem = File.read(cwd + "\\" + args['inKey'])
-
-            # Read ECIES message from file
             ecies_pem = File.read(cwd + "\\" + args['in'])
 
             # WebSSL ECIES decrypt
@@ -125,26 +137,22 @@ def main():
             # Save decrypted data to file
             File.write(cwd + "\\" + args['out'], decrypted_data)
 
-        elif args['cmsEncrypt'] and args['recip'] and args['in'] and args['out']:
+        elif args['cmsEncrypt'] and args['algorithm'] and args['recip'] and args['in'] and args['out']:
 
-            # Read public key from file
+            # Read input from files
             recip_cert = File.read(cwd + "\\" + args['recip'])
-
-            # Read data to encrypt from file
             data_to_encrypt = File.read(cwd + "\\" + args['in'])
 
             # WebSSL CMS Encrypt
-            cms = webssl_api.cms_encrypt(recip_cert, str.encode(data_to_encrypt))
+            cms = webssl_api.cms_encrypt(args['algorithm'], recip_cert, str.encode(data_to_encrypt))
 
             # Save CMS data to file
             File.write(cwd + "\\" + args['out'], cms)
 
         elif args['cmsDecrypt'] and args['inKey'] and args['in'] and args['out']:
 
-            # Read private key from file
+            # Read input from files
             prv_key_pem = File.read(cwd + "\\" + args['inKey'])
-
-            # Read data to encrypt from file
             ecies = File.read(cwd + "\\" + args['in'])
 
             # WebSSl CMS Decrypt
@@ -153,7 +161,7 @@ def main():
             # Save decrypted data to file
             File.write(cwd + "\\" + args['out'], data)
 
-        elif args['cmsSign'] and args['signer'] and args['inKey'] and args['in'] and args['out']:
+        elif args['cmsSign'] and args["digest"] and args['signer'] and args['inKey'] and args['in'] and args['out']:
 
             # Read input from files
             signer_cert_pem = File.read(cwd + "\\" + args['signer'])
@@ -161,7 +169,7 @@ def main():
             data = File.read(cwd + "\\" + args['in'])
 
             # WebSSL CMS Sign
-            cms = webssl_api.cms_sign(signer_cert_pem, prv_key_pem, str.encode(data))
+            cms = webssl_api.cms_sign(args["digest"], signer_cert_pem, prv_key_pem, str.encode(data))
 
             # Save CMS data to file
             File.write(cwd + "\\" + args['out'], cms)
@@ -175,8 +183,8 @@ def main():
             is_verified = webssl_api.cms_verify(cms)
             print("Verified: " + str(is_verified))
 
-        elif args['cmsEncryptAndSign'] and args['recip'] and args['signer'] and args['inKey']\
-                and args['in'] and args['out']:
+        elif args['cmsEncryptAndSign'] and args['recip'] and args['signer'] and args['inKey'] \
+                and args['in'] and args['algorithm'] and args['digest'] and args['out']:
 
             # Read input from files
             signer_cert_pem = File.read(cwd + "\\" + args['signer'])
@@ -185,7 +193,8 @@ def main():
             data = File.read(cwd + "\\" + args['in'])
 
             # WebSSL Encrypt and Sign
-            cms = webssl_api.cms_encrypt_and_sign(signer_cert_pem, recip_cert_pem, prv_key_pem, str.encode(data))
+            cms = webssl_api.cms_encrypt_and_sign(args['algorithm'], args["digest"], signer_cert_pem, recip_cert_pem,
+                                                  prv_key_pem, str.encode(data))
 
             # Save CMS data to file
             File.write(cwd + "\\" + args['out'], cms)
@@ -203,8 +212,8 @@ def main():
             print("Verified: " + str(is_verified))
             File.write(cwd + "\\" + args['out'], data)
 
-        elif args['cmsSignAndEncrypt'] and args['recip'] and args['signer'] and args['inKey']\
-                and args['in'] and args['out']:
+        elif args['cmsSignAndEncrypt'] and args['recip'] and args['signer'] and args['inKey'] \
+                and args['in'] and args['algorithm'] and args['digest'] and args['out']:
 
             # Read input from files
             signer_cert_pem = File.read(cwd + "\\" + args['signer'])
@@ -213,7 +222,8 @@ def main():
             data = File.read(cwd + "\\" + args['in'])
 
             # WebSSL CMS Sign and Encrypt
-            cms = webssl_api.cms_sign_and_encrypt(signer_cert_pem, recip_cert_pem, prv_key_pem, str.encode(data))
+            cms = webssl_api.cms_sign_and_encrypt(args['algorithm'], args["digest"], signer_cert_pem, recip_cert_pem, prv_key_pem,
+                                                  str.encode(data))
 
             # Save CMS data to file
             File.write(cwd + "\\" + args['out'], cms)
@@ -232,45 +242,36 @@ def main():
             print("Verified: " + str(is_verified))
             File.write(cwd + "\\" + args['out'], data)
 
-        elif args['reqGenerateCsr'] and args['inKey'] and args['cn'] and args['out']:
+        elif args['reqGenerateCsr'] and args['inKey'] and args['cn'] and args["digest"] and args['out'] and\
+                args['subjectType'] and args['pathLength'] and args['keyUsageList'] and args['extendedKeyUsageList']:
 
             # Read arguments
             prv_key_pem = File.read(cwd + "\\" + args['inKey'])
-            common_name = args["cn"]
-            country = args["c"]
-            locality = args["l"]
-            state = args["s"]
-            organisation = args["o"]
-            organisational_unit = args["ou"]
-            email = args["e"]
 
             # WebSSL Generate CSR
-            csr = webssl_api.req_generate_csr(prv_key_pem, common_name, country, state, locality, organisation,
-                                              organisational_unit, email)
+            csr = webssl_api.req_generate_csr(args["digest"], prv_key_pem, args["cn"], args["c"], args["s"], args["l"],
+                                              args["o"],
+                                              args["ou"], args["e"], args["dc"], args['keyUsageList'],
+                                              args['extendedKeyUsageList'], "End Entity", args['pathLength'])
 
             # Save CSR to file
             File.write(cwd + "\\" + args['out'], csr)
 
-        elif args['reqGenKeyAndCert'] and args['algorithm'] and args['cn'] and args['subjectType'] \
-                and args['days'] and args['outPrvKey'] and args['outPubKey']:
+        elif args['reqGenKeyAndCert'] and args['algorithm'] and args['digest'] and args['cn'] and args['subjectType'] \
+                and args['days'] and args['outPrvKey'] and args['pathLength'] and args['outPubKey']\
+                and args['keyUsageList'] and args['extendedKeyUsageList']:
 
-            # Read arguments
-            algorithm = args['algorithm']
-            common_name = args["cn"]
-            country = args["c"]
-            locality = args["l"]
-            state = args["s"]
-            organisation = args["o"]
-            organisational_unit = args["ou"]
-            email = args["e"]
-            days = args["days"]
-            subject_type = args["subjectType"]
-
-            # WebSSL Generate Key and Certificate
-            private_key, certificate = webssl_api.req_generate_key_and_cert(algorithm, common_name, country, state,
-                                                                            locality, organisation, organisational_unit,
-                                                                            email, days, subject_type)
-
+            # WebSSL generate key and self signed certificate
+            private_key, certificate = webssl_api.req_generate_key_and_self_signed_cert(args['algorithm'], args["digest"],
+                                                                                        args["cn"], args["c"],
+                                                                                        args["s"], args["l"],
+                                                                                        args["o"],
+                                                                                        args["ou"], args["e"],
+                                                                                        args["dc"], args["days"],
+                                                                                        args['keyUsageList'],
+                                                                                        args['extendedKeyUsageList'],
+                                                                                        args["subjectType"],
+                                                                                        args['pathLength'])
             # Save Private Key to file
             path = cwd + "\\" + args['outPrvKey']
             File.write(path, private_key)
@@ -279,20 +280,70 @@ def main():
             path = cwd + "\\" + args['outPubKey']
             File.write(path, certificate)
 
-        elif args['x509SignCsr'] and args['signer'] and args['inKey'] and args['in'] \
-                and args['days'] and args['outPubKey']:
+        elif args['reqGenKeyAndSignedCert'] and args['password'] and args['digest'] and args['algorithm'] \
+                and args['cn'] and args['inKey'] and args['signer'] and args['subjectType'] and args['pathLength'] \
+                and args['days'] and args['keyUsageList'] and args['extendedKeyUsageList'] and args['out']:
 
-            # Read arguments
+            # Read input from files
+            prv_key_pem = File.read(cwd + "\\" + args['inKey'])
+            signer_cert_pem = File.read(cwd + "\\" + args['signer'])
+
+            # WebSSL generate key and certificate
+            pkcs12 = webssl_api.req_generate_key_and_signed_cert(args["password"], args['algorithm'], args["digest"],
+                                                                 signer_cert_pem, prv_key_pem, args["cn"], args["c"],
+                                                                 args["s"], args["l"], args["o"], args["ou"], args["e"],
+                                                                 args["dc"], args["days"], args['keyUsageList'],
+                                                                 args['extendedKeyUsageList'],
+                                                                 args["subjectType"], args['pathLength'])
+
+            # Save pkcs12 to file
+            File.write_bytes(cwd + "\\" + args['out'], pkcs12)
+
+        elif args['reqDecodeCsr']:
+
+            # Read input from file
+            csr_pem = File.read(cwd + "\\" + args['in'])
+
+            # WebSSL decode certificate signing request
+            csr = webssl_api.req_decode_csr(csr_pem)
+            CSRDecoder.print_csr(csr)
+
+        elif args['x509SignCsr'] and args['digest'] and args['signer'] and args['inKey'] and args['in'] \
+                and args['days'] and args['out']:
+
+            # Read input from files
             signer_cert_pem = File.read(cwd + "\\" + args['signer'])
             prv_key_pem = File.read(cwd + "\\" + args['inKey'])
             csr = File.read(cwd + "\\" + args['in'])
-            days = args["days"]
 
-            # WebSSL Sign CSR
-            certificate = webssl_api.x509_sign_csr(prv_key_pem, signer_cert_pem, csr, days)
+            # WebSSL sign CSR
+            certificate = webssl_api.x509_sign_csr(args['digest'], prv_key_pem, signer_cert_pem, csr, args["days"])
 
             # Save certificate to file
-            File.write(cwd + "\\" + args['outPubKey'], certificate)
+            File.write(cwd + "\\" + args['out'], certificate)
+
+        elif args['x509DecodeCrt'] and args['in']:
+
+            # Read input from file
+            cert_pem = File.read(cwd + "\\" + args['in'])
+
+            # WebSSL decode x509 certificate
+            certificate = webssl_api.x509_decode_crt(cert_pem)
+            CRTDecoder.print_certificate(certificate)
+
+        elif args['pkcs12Export'] and args["password"] and args['signer'] and args['inKey'] and args['in'] and args[
+            "out"]:
+
+            # Read input from files
+            cert_pem = File.read(cwd + "\\" + args['in'])
+            signer_cert_pem = File.read(cwd + "\\" + args['signer'])
+            prv_key_pem = File.read(cwd + "\\" + args['inKey'])
+
+            # WebSSL export to PKCS#12 file
+            pkcs12 = webssl_api.pkcs12_export(args["password"], cert_pem, prv_key_pem, signer_cert_pem)
+
+            # Save pkcs12 to file
+            File.write_bytes(cwd + "\\" + args['out'], pkcs12)
 
         else:
             parser.print_help()
