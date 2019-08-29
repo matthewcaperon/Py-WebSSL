@@ -36,7 +36,7 @@ class CRTDecoder:
         if 'domainComponent' in certificate['subject']:
             domain_component = certificate['subject']['domainComponent']
 
-        if 'algorithm' in certificate:
+        if 'algorithm' in certificate['publicKeyInfo']:
             algorithm = certificate['publicKeyInfo']['algorithm']
         if 'modulus' in certificate['publicKeyInfo']:
             modulus = certificate['publicKeyInfo']['modulus']
@@ -151,7 +151,7 @@ class CRTDecoder:
                 len(certificate.public_key_info.exponent) > 0:
             public_key_info = '\tPublic Key Info:'
             public_key_info += "\n\t\talgorithm: " + certificate.public_key_info.algorithm
-            if len(certificate.public_key_info.modulus > 0) and len(certificate.public_key_info.exponent > 0):
+            if len(certificate.public_key_info.modulus) > 0 and len(certificate.public_key_info.exponent) > 0:
                 public_key_info += "\n\t\tmodulus: " + certificate.public_key_info.modulus
                 public_key_info += "\n\t\texponent: " + certificate.public_key_info.exponent
             else:

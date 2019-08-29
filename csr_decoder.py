@@ -30,7 +30,7 @@ class CSRDecoder:
         if 'domainComponent' in csr['subject']:
             domain_component = csr['subject']['domainComponent']
 
-        if 'algorithm' in csr:
+        if 'algorithm' in csr['publicKeyInfo']:
             algorithm = csr['publicKeyInfo']['algorithm']
         if 'modulus' in csr['publicKeyInfo']:
             modulus = csr['publicKeyInfo']['modulus']
@@ -111,7 +111,7 @@ class CSRDecoder:
                 len(csr.public_key_info.exponent) > 0:
             public_key_info = '\tPublic Key Info:'
             public_key_info += "\n\t\talgorithm: " + csr.public_key_info.algorithm
-            if len(csr.public_key_info.modulus > 0) and len(csr.public_key_info.exponent > 0):
+            if len(csr.public_key_info.modulus) > 0 and len(csr.public_key_info.exponent) > 0:
                 public_key_info += "\n\t\tmodulus: " + csr.public_key_info.modulus
                 public_key_info += "\n\t\texponent: " + csr.public_key_info.exponent
             else:
