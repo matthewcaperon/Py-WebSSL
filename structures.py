@@ -33,6 +33,10 @@ class BasicConstraints:
     subject_type: str
     path_len: str
 
+@dataclass
+class SubjectAltName:
+    dns: str
+    ip: str
 
 @dataclass
 class CSR:
@@ -42,6 +46,7 @@ class CSR:
     enhanced_key_usage: tuple
     basic_constraints: BasicConstraints
     subject_key_id: str
+    subject_alt_name: SubjectAltName
     signature: Signature
 
 
@@ -59,4 +64,5 @@ class Certificate:
     enhanced_key_usage: tuple
     authority_key_id: str
     subject_key_id: str
+    subject_alt_name: SubjectAltName
     signature: Signature

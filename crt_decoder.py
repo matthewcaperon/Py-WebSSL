@@ -9,7 +9,7 @@ class CRTDecoder:
 
         valid_from, valid_to, version, serial_number, common_name, country, locality, state, organisation, \
         organisational_unit, email, domain_component, authority_key_id, subject_key_id, modulus, \
-        exponent, point, subject_type, path_len, algorithm, sig_algorithm, digest, sig_value = [""] * 23
+        exponent, point, subject_type, path_len, algorithm, sig_algorithm, digest, sig_value, dns, ip = [""] * 25
         key_usage = tuple()
         enhanced_key_usage = tuple()
 
@@ -63,6 +63,12 @@ class CRTDecoder:
         if 'subjectKeyId' in certificate:
             subject_key_id = certificate['subjectKeyId']
 
+        if 'subjectAltName' in certificate:
+            if 'DNS' in certificate['subjectAltName']:
+                dns = certificate['subjectAltName']['DNS']
+            if 'IP' in certificate['subjectAltName']:
+                ip = certificate['subjectAltName']['IP']
+
         if 'signature' in certificate:
             if 'algorithm' in certificate['signature']:
                 sig_algorithm = certificate['signature']['algorithm']
@@ -75,17 +81,18 @@ class CRTDecoder:
         subject = DN(common_name, country, locality, state, organisation, organisational_unit, email, domain_component)
         public_key_info = PublicKeyInfo(algorithm, modulus, exponent, point)
         basic_constraints = BasicConstraints(subject_type, path_len)
+        subject_alt_name = SubjectAltName(dns, ip)
         signature = Signature(sig_algorithm, digest, sig_value)
 
         return Certificate(version, serial_number, issuer, subject, valid_from, valid_to, public_key_info,
                            basic_constraints, key_usage, enhanced_key_usage, authority_key_id, subject_key_id,
-                           signature)
+                           subject_alt_name, signature)
 
     @staticmethod
     def print_certificate(certificate):
 
         public_key_info, key_usage, enhanced_key_usage, authority_key_id, subject_key_id, \
-        signature, basic_constraints = [""] * 7
+        signature, basic_constraints, subject_alt_name = [""] * 8
 
         version = '\tVersion: ' + certificate.version + '\n'
 
@@ -158,6 +165,14 @@ class CRTDecoder:
                 public_key_info += "\n\t\tpoint: " + certificate.public_key_info.point
             public_key_info += "\n"
 
+        if len(certificate.subject_alt_name.dns) > 0 or len(certificate.subject_alt_name.ip) > 0:
+            subject_alt_name = '\tSubject Alternative Name:'
+            if len(certificate.subject_alt_name.dns) > 0:
+                subject_alt_name += "\n\t\tDNS: " + certificate.subject_alt_name.dns
+            if len(certificate.subject_alt_name.ip) > 0:
+                subject_alt_name += "\n\t\tIP: " + certificate.subject_alt_name.ip
+            subject_alt_name += "\n"
+
         if len(certificate.signature.algorithm) > 0 and len(certificate.signature.digest) > 0 \
                 and len(certificate.signature.value) > 0:
             signature = '\tSignature:'
@@ -167,4 +182,5 @@ class CRTDecoder:
             signature += "\n"
 
         print('Certificate:\n' + version + serial_number + issuer + subject + public_key_info + valid_from + valid_to +
-              key_usage + enhanced_key_usage + authority_key_id + subject_key_id + basic_constraints + signature)
+              key_usage + enhanced_key_usage + authority_key_id + subject_key_id + basic_constraints +
+              subject_alt_name + signature)

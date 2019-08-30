@@ -7,8 +7,9 @@ class CSRDecoder:
     @staticmethod
     def from_json(json_object):
 
-        common_name, country, locality, state, organisation, organisational_unit, email, domain_component, subject_key_id, modulus, \
-        exponent, point, subject_type, path_len, algorithm, sig_algorithm, digest, sig_value = [""] * 18
+        common_name, country, locality, state, organisation, organisational_unit, email, domain_component,\
+        subject_key_id, modulus, exponent, point, subject_type, path_len, algorithm, sig_algorithm, digest,\
+        dns, ip, sig_value = [""] * 20
         key_usage = tuple()
         enhanced_key_usage = tuple()
 
@@ -54,6 +55,12 @@ class CSRDecoder:
         if 'subjectKeyId' in csr:
             subject_key_id = csr['subjectKeyId']
 
+        if 'subjectAltName' in csr:
+            if 'DNS' in csr['subjectAltName']:
+                dns = csr['subjectAltName']['DNS']
+            if 'IP' in csr['subjectAltName']:
+                ip = csr['subjectAltName']['IP']
+
         if 'signature' in csr:
             if 'algorithm' in csr['signature']:
                 sig_algorithm = csr['signature']['algorithm']
@@ -65,14 +72,17 @@ class CSRDecoder:
         subject = DN(common_name, country, locality, state, organisation, organisational_unit, email, domain_component)
         public_key_info = PublicKeyInfo(algorithm, modulus, exponent, point)
         basic_constraints = BasicConstraints(subject_type, path_len)
+        subject_alt_name = SubjectAltName(dns, ip)
         signature = Signature(sig_algorithm, digest, sig_value)
 
-        return CSR(subject, public_key_info, key_usage, enhanced_key_usage, basic_constraints, subject_key_id, signature)
+        return CSR(subject, public_key_info, key_usage, enhanced_key_usage, basic_constraints, subject_key_id,
+                   subject_alt_name, signature)
 
     @staticmethod
     def print_csr(csr):
 
-        public_key_info, key_usage, enhanced_key_usage, subject_key_id, signature, basic_constraints = [""] * 6
+        public_key_info, key_usage, enhanced_key_usage, subject_key_id, signature, subject_alt_name,\
+        basic_constraints = [""] * 7
 
         subject = '\tSubject: '
         subject += '\n\t\tCN: ' + csr.subject.cn
@@ -118,6 +128,14 @@ class CSRDecoder:
                 public_key_info += "\n\t\tpoint: " + csr.public_key_info.point
             public_key_info += "\n"
 
+        if len(csr.subject_alt_name.dns) > 0 or len(csr.subject_alt_name.ip) > 0:
+            subject_alt_name = '\tSubject Alternative Name:'
+            if len(csr.subject_alt_name.dns) > 0:
+                subject_alt_name += "\n\t\tDNS: " + csr.subject_alt_name.dns
+            if len(csr.subject_alt_name.ip) > 0:
+                subject_alt_name += "\n\t\tIP: " + csr.subject_alt_name.ip
+            subject_alt_name += "\n"
+
         if len(csr.signature.algorithm) > 0 and len(csr.signature.digest) > 0 and len(csr.signature.value) > 0:
             signature = '\tSignature:'
             signature += "\n\t\tAlgorithm: " + csr.signature.algorithm
@@ -126,4 +144,4 @@ class CSRDecoder:
             signature += "\n"
 
         print('Certificate Request:\n' + subject + public_key_info + key_usage + enhanced_key_usage + subject_key_id +
-              basic_constraints + signature)
+              basic_constraints + subject_alt_name + signature)
