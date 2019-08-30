@@ -101,7 +101,8 @@ class Api:
 
         data_to_encrypt_b64 = base64.b64encode(data_to_encrypt)
 
-        payload = json.dumps({'algorithm': algorithm, 'recip': recipients_certificate, 'in': str(data_to_encrypt_b64, 'utf-8')})
+        payload = json.dumps(
+            {'algorithm': algorithm, 'recip': recipients_certificate, 'in': str(data_to_encrypt_b64, 'utf-8')})
 
         response = self.http.http_post_json(self.webssl_cms_encrypt_url, payload)
 
@@ -208,31 +209,16 @@ class Api:
 
     def req_generate_csr(self, digest, private_key, common_name, country, state, locality,
                          organisation, organisational_unit, email, domain_component, key_usage_list,
-                         extended_key_usage_list, subject_type, path_length):
+                         extended_key_usage_list, subject_type, path_length, ip, dns):
 
-        dn = {'commonName': common_name}
-        if country is not None:
-            dn['country'] = country
-        if state is not None:
-            dn['state'] = state
-        if locality is not None:
-            dn['locality'] = locality
-        if organisation is not None:
-            dn['organisation'] = organisation
-        if organisational_unit is not None:
-            dn['organisational_unit'] = organisational_unit
-        if email is not None:
-            dn['email'] = email
-        if domain_component is not None:
-            dn['domainComponent'] = domain_component
+        request_dict = self._prepare_cert_req(digest, common_name, country, state, locality,
+                                              organisation, organisational_unit, email, domain_component,
+                                              key_usage_list,
+                                              extended_key_usage_list, subject_type, path_length, ip, dns)
 
-        if 'endEntity' == subject_type:
-            subject_type = 'End Entity'
+        request_dict.update({'inKey': private_key})
 
-        basic_constraints = {'subjectType': subject_type, 'pathLengthConstraint': path_length}
-
-        payload = json.dumps({'inKey': private_key, 'digest': digest, 'subject': dn, 'keyUsage': key_usage_list,
-                              'enhancedKeyUsage': extended_key_usage_list, 'basicConstraints': basic_constraints})
+        payload = json.dumps(request_dict)
 
         response = self.http.http_post_json(self.webssl_req_generate_csr_url, payload)
 
@@ -254,32 +240,16 @@ class Api:
     def req_generate_key_and_self_signed_cert(self, algorithm, digest, common_name, country, state, locality,
                                               organisation, organisational_unit, email, domain_component, days,
                                               key_usage_list,
-                                              extended_key_usage_list, subject_type, path_length):
+                                              extended_key_usage_list, subject_type, path_length, ip, dns):
 
-        dn = {'commonName': common_name}
-        if country is not None:
-            dn['country'] = country
-        if state is not None:
-            dn['state'] = state
-        if locality is not None:
-            dn['locality'] = locality
-        if organisation is not None:
-            dn['organisation'] = organisation
-        if organisational_unit is not None:
-            dn['organisational_unit'] = organisational_unit
-        if email is not None:
-            dn['email'] = email
-        if domain_component is not None:
-            dn['domainComponent'] = domain_component
+        request_dict = self._prepare_cert_req(digest, common_name, country, state, locality,
+                                              organisation, organisational_unit, email, domain_component,
+                                              key_usage_list,
+                                              extended_key_usage_list, subject_type, path_length, ip, dns)
 
-        if 'endEntity' == subject_type:
-            subject_type = 'End Entity'
+        request_dict.update({'algorithm': algorithm, 'days': str(days)})
 
-        basic_constraints = {'subjectType': subject_type, 'pathLengthConstraint': path_length}
-
-        payload = json.dumps({'algorithm': algorithm, 'days': str(days), 'digest': digest,
-                              'subject': dn, 'keyUsage': key_usage_list, 'enhancedKeyUsage': extended_key_usage_list,
-                              'basicConstraints': basic_constraints})
+        payload = json.dumps(request_dict)
 
         response = self.http.http_post_json(self.webssl_req_generate_key_and_self_signed_cert_url, payload)
 
@@ -292,33 +262,17 @@ class Api:
     def req_generate_key_and_signed_cert(self, password, algorithm, digest, signer_certificate, private_key,
                                          common_name, country, state, locality, organisation, organisational_unit,
                                          email, domain_component, days, key_usage_list, extended_key_usage_list,
-                                         subject_type, path_length):
+                                         subject_type, path_length, ip, dns):
 
-        dn = {'commonName': common_name}
-        if country is not None:
-            dn['country'] = country
-        if state is not None:
-            dn['state'] = state
-        if locality is not None:
-            dn['locality'] = locality
-        if organisation is not None:
-            dn['organisation'] = organisation
-        if organisational_unit is not None:
-            dn['organisationalUnit'] = organisational_unit
-        if email is not None:
-            dn['email'] = email
-        if domain_component is not None:
-            dn['domainComponent'] = domain_component
+        request_dict = self._prepare_cert_req(digest, common_name, country, state, locality,
+                                              organisation, organisational_unit, email, domain_component,
+                                              key_usage_list,
+                                              extended_key_usage_list, subject_type, path_length, ip, dns)
 
-        if 'endEntity' == subject_type:
-            subject_type = 'End Entity'
+        request_dict.update({'password': password, 'signerCert': signer_certificate, 'inKey': private_key,
+                             'algorithm': algorithm, 'days': str(days)})
 
-        basic_constraints = {'subjectType': subject_type, 'pathLengthConstraint': path_length}
-
-        payload = json.dumps({'password': password, 'signerCert': signer_certificate, 'inKey': private_key,
-                              'algorithm': algorithm, 'days': str(days), 'digest': digest,
-                              'subject': dn, 'keyUsage': key_usage_list, 'enhancedKeyUsage': extended_key_usage_list,
-                              'basicConstraints': basic_constraints})
+        payload = json.dumps(request_dict)
 
         response = self.http.http_post_json(self.webssl_req_generate_key_and_signed_cert_url, payload)
 
@@ -364,3 +318,59 @@ class Api:
         pkcs12 = base64.b64decode(str.encode(pkcs12_b64))
 
         return pkcs12
+
+    @staticmethod
+    def _prepare_cert_req(digest, common_name, country, state, locality,
+                          organisation, organisational_unit, email, domain_component, key_usage_list,
+                          extended_key_usage_list, subject_type, path_length, ip, dns):
+
+        key_usage, extended_key_usage, subject_alt_name = [""] * 3
+        subject_alt_name = {}
+        basic_constraints = {}
+
+        dn = {'commonName': common_name}
+        if country is not None:
+            dn['country'] = country
+        if state is not None:
+            dn['state'] = state
+        if locality is not None:
+            dn['locality'] = locality
+        if organisation is not None:
+            dn['organisation'] = organisation
+        if organisational_unit is not None:
+            dn['organisational_unit'] = organisational_unit
+        if email is not None:
+            dn['email'] = email
+        if domain_component is not None:
+            dn['domainComponent'] = domain_component
+
+        if 'endEntity' == subject_type:
+            subject_type = 'End Entity'
+
+        if key_usage_list is not None:
+            key_usage = {'keyUsage': key_usage_list}
+
+        if extended_key_usage_list is not None:
+            extended_key_usage = {'enhancedKeyUsage': extended_key_usage_list}
+
+        if ip is not None or dns is not None:
+            subject_alt_name['subjectAltName'] = {}
+        if ip is not None:
+            subject_alt_name['subjectAltName']['IP'] = ip
+        if dns is not None:
+            subject_alt_name['subjectAltName']['DNS'] = dns
+
+        if subject_type is not None or path_length is not None:
+            basic_constraints['basicConstraints'] = {}
+        if subject_type is not None:
+            basic_constraints['basicConstraints']['subjectType'] = subject_type
+        if path_length is not None:
+            basic_constraints['basicConstraints']['pathLengthConstraint'] = path_length
+
+        request_dict = {'digest': digest, 'subject': dn}
+        request_dict.update(key_usage)
+        request_dict.update(extended_key_usage)
+        request_dict.update(subject_alt_name)
+        request_dict.update(basic_constraints)
+
+        return request_dict

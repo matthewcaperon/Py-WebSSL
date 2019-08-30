@@ -15,6 +15,7 @@ class CSRDecoder:
 
         csr = json.loads(json_object)
 
+        version = csr['version']
         common_name = csr['subject']['commonName']
         if 'country' in csr['subject']:
             country = csr['subject']['country']
@@ -75,7 +76,7 @@ class CSRDecoder:
         subject_alt_name = SubjectAltName(dns, ip)
         signature = Signature(sig_algorithm, digest, sig_value)
 
-        return CSR(subject, public_key_info, key_usage, enhanced_key_usage, basic_constraints, subject_key_id,
+        return CSR(version, subject, public_key_info, key_usage, enhanced_key_usage, basic_constraints, subject_key_id,
                    subject_alt_name, signature)
 
     @staticmethod
@@ -84,6 +85,7 @@ class CSRDecoder:
         public_key_info, key_usage, enhanced_key_usage, subject_key_id, signature, subject_alt_name,\
         basic_constraints = [""] * 7
 
+        version = '\tVersion: \n\t\t' + csr.version + '\n'
         subject = '\tSubject: '
         subject += '\n\t\tCN: ' + csr.subject.cn
         if len(csr.subject.c) > 0:
@@ -143,5 +145,5 @@ class CSRDecoder:
             signature += "\n\t\tValue: " + csr.signature.value
             signature += "\n"
 
-        print('Certificate Request:\n' + subject + public_key_info + key_usage + enhanced_key_usage + subject_key_id +
+        print('Certificate Request:\n' + version + subject + public_key_info + key_usage + enhanced_key_usage + subject_key_id +
               basic_constraints + subject_alt_name + signature)

@@ -88,7 +88,7 @@ python webssl.py -cmsDecryptAndVerify -inKey recipient.key -in signed_and_encryp
 ### Generate CSR
 
 ```bash
-python webssl.py -reqGenerateCsr -cn test.example.com -digest sha-256 -inKey server.key -out server.csr -subjectType endEntity -keyUsageList digitalSignature keyEncipherment -extendedKeyUsageList clientAuthentication serverAuthentication
+python webssl.py -reqGenerateCsr -cn test.example.com -digest sha-256 -inKey server.key -out server.csr -subjectType endEntity -keyUsageList digitalSignature keyEncipherment -extendedKeyUsageList clientAuthentication serverAuthentication -ip 192.168.0.1 -dns test.example.com
 ```
 
 ### Decode CSR
@@ -100,7 +100,7 @@ python webssl.py -reqDecodeCsr -in server.csr
 ### Generate Key and Self Signed Certificate
 
 ```bash
-python webssl.py -reqGenKeyAndCert -algorithm rsa-2048 -digest sha-256 -cn testCA -days 365 -subjectType CA -pathLength 1 -outPrvKey ca.key -outPubKey ca.crt -keyUsageList digitalSignature nonRepudiation keyCertSign CRLSign -extendedKeyUsageList  clientAuthentication serverAuthentication
+python webssl.py -reqGenKeyAndCert -algorithm rsa-2048 -digest sha-256 -cn testCA -days 365 -subjectType CA -pathLength 1 -outPrvKey ca.key -outPubKey ca.crt -keyUsageList digitalSignature nonRepudiation keyCertSign CRLSign
 ```
 
 ### Sign CSR

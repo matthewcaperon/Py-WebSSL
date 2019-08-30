@@ -40,6 +40,7 @@ class SubjectAltName:
 
 @dataclass
 class CSR:
+    version: str
     subject: DN
     public_key_info: PublicKeyInfo
     key_usage: tuple

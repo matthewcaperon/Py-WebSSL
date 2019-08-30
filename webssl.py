@@ -57,6 +57,8 @@ def main():
         parser.add_argument("-days", help="Certificate validity in days")
         parser.add_argument("-subjectType", help="Certificate subject type (CA/endEntity)")
         parser.add_argument("-pathLength", help="CA certificate path length constraint", default='0')
+        parser.add_argument("-ip", help="Host IP address")
+        parser.add_argument("-dns", help="Host DNS name")
         parser.add_argument("-keyUsageList", help='A list of key usage extensions ('
                                                   'CRLSign/dataEncipherment/decipherOnly/digitalSignature/encipherOnly/'
                                                   'keyAgreement/keyCertSign/keyEncipherment/nonRepudiation)', nargs='+')
@@ -242,8 +244,7 @@ def main():
             print("Verified: " + str(is_verified))
             File.write(cwd + "\\" + args['out'], data)
 
-        elif args['reqGenerateCsr'] and args['inKey'] and args['cn'] and args["digest"] and args['out'] and\
-                args['subjectType'] and args['pathLength'] and args['keyUsageList'] and args['extendedKeyUsageList']:
+        elif args['reqGenerateCsr'] and args['inKey'] and args['cn'] and args["digest"] and args['out']:
 
             # Read arguments
             prv_key_pem = File.read(cwd + "\\" + args['inKey'])
@@ -252,14 +253,14 @@ def main():
             csr = webssl_api.req_generate_csr(args["digest"], prv_key_pem, args["cn"], args["c"], args["s"], args["l"],
                                               args["o"],
                                               args["ou"], args["e"], args["dc"], args['keyUsageList'],
-                                              args['extendedKeyUsageList'], "End Entity", args['pathLength'])
+                                              args['extendedKeyUsageList'], "End Entity", args['pathLength'],
+                                              args['ip'], args['dns'])
 
             # Save CSR to file
             File.write(cwd + "\\" + args['out'], csr)
 
-        elif args['reqGenKeyAndCert'] and args['algorithm'] and args['digest'] and args['cn'] and args['subjectType'] \
-                and args['days'] and args['outPrvKey'] and args['pathLength'] and args['outPubKey']\
-                and args['keyUsageList'] and args['extendedKeyUsageList']:
+        elif args['reqGenKeyAndCert'] and args['algorithm'] and args['digest'] and args['cn'] and args['days'] \
+                and args['outPrvKey'] and args['outPubKey']:
 
             # WebSSL generate key and self signed certificate
             private_key, certificate = webssl_api.req_generate_key_and_self_signed_cert(args['algorithm'], args["digest"],
@@ -271,7 +272,8 @@ def main():
                                                                                         args['keyUsageList'],
                                                                                         args['extendedKeyUsageList'],
                                                                                         args["subjectType"],
-                                                                                        args['pathLength'])
+                                                                                        args['pathLength'],
+                                                                                        args['ip'], args['dns'])
             # Save Private Key to file
             path = cwd + "\\" + args['outPrvKey']
             File.write(path, private_key)
@@ -281,8 +283,7 @@ def main():
             File.write(path, certificate)
 
         elif args['reqGenKeyAndSignedCert'] and args['password'] and args['digest'] and args['algorithm'] \
-                and args['cn'] and args['inKey'] and args['signer'] and args['subjectType'] and args['pathLength'] \
-                and args['days'] and args['keyUsageList'] and args['extendedKeyUsageList'] and args['out']:
+                and args['cn'] and args['inKey'] and args['signer'] and args['days'] and args['out']:
 
             # Read input from files
             prv_key_pem = File.read(cwd + "\\" + args['inKey'])
@@ -294,7 +295,8 @@ def main():
                                                                  args["s"], args["l"], args["o"], args["ou"], args["e"],
                                                                  args["dc"], args["days"], args['keyUsageList'],
                                                                  args['extendedKeyUsageList'],
-                                                                 args["subjectType"], args['pathLength'])
+                                                                 args["subjectType"], args['pathLength'],
+                                                                 args['ip'], args['dns'])
 
             # Save pkcs12 to file
             File.write_bytes(cwd + "\\" + args['out'], pkcs12)
